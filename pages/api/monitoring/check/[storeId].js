@@ -1,8 +1,23 @@
 // Use different database implementations based on environment
 let Database, db, storeMonitor;
 
-if (process.env.VERCEL) {
-  // Use Vercel-compatible database
+if (process.env.NEXT_PUBLIC_SUPABASE_URL) {
+  // Use Supabase database
+  const SupabaseDatabase = (await import('../../../../lib/database-supabase.js')).default;
+  Database = SupabaseDatabase;
+  db = new Database();
+  // Mock store monitor for Supabase (for now)
+  storeMonitor = {
+    async manualCheck(storeId) {
+      return {
+        totalApps: 0,
+        newApps: 0,
+        sessionId: Math.floor(Math.random() * 1000)
+      };
+    }
+  };
+} else if (process.env.VERCEL) {
+  // Use Vercel-compatible in-memory database
   const VercelDatabase = (await import('../../../../lib/database-vercel.js')).default;
   Database = VercelDatabase;
   db = new Database();

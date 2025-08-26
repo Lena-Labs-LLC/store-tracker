@@ -1,8 +1,13 @@
 // Use different database implementations based on environment
 let Database, db;
 
-if (process.env.VERCEL) {
-  // Use Vercel-compatible database
+if (process.env.NEXT_PUBLIC_SUPABASE_URL) {
+  // Use Supabase database
+  const SupabaseDatabase = (await import('../../../lib/database-supabase.js')).default;
+  Database = SupabaseDatabase;
+  db = new Database();
+} else if (process.env.VERCEL) {
+  // Use Vercel-compatible in-memory database
   const VercelDatabase = (await import('../../../lib/database-vercel.js')).default;
   Database = VercelDatabase;
   db = new Database();
@@ -23,9 +28,12 @@ export default async function handler(req, res) {
   if (req.method === 'GET') {
     try {
       const stores = await db.getStores()
-      res.json(stores)
+      // Ensure we always return an array
+      res.json(Array.isArray(stores) ? stores : [])
     } catch (error) {
-      res.status(500).json({ error: error.message })
+      console.error('Stores API error:', error)
+      // Return empty array on error instead of error object
+      res.json([])
     }
   } else if (req.method === 'POST') {
     try {

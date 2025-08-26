@@ -50,9 +50,10 @@ export default function Home() {
     try {
       const response = await fetch('/api/monitoring/stats')
       const data = await response.json()
-      setStats(data)
+      setStats(data || {})
     } catch (error) {
       console.error('Error loading stats:', error)
+      setStats({}) // Set empty object on error
     }
   }
 
@@ -60,9 +61,11 @@ export default function Home() {
     try {
       const response = await fetch('/api/stores')
       const data = await response.json()
-      setStores(data)
+      // Ensure data is always an array
+      setStores(Array.isArray(data) ? data : [])
     } catch (error) {
       console.error('Error loading stores:', error)
+      setStores([]) // Set empty array on error
     }
   }
 
@@ -70,9 +73,11 @@ export default function Home() {
     try {
       const response = await fetch('/api/monitoring/sessions')
       const data = await response.json()
-      setSessions(data)
+      // Ensure data is always an array
+      setSessions(Array.isArray(data) ? data : [])
     } catch (error) {
       console.error('Error loading sessions:', error)
+      setSessions([]) // Set empty array on error
     }
   }
 

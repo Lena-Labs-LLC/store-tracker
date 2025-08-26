@@ -1,8 +1,13 @@
 // Use different database implementations based on environment
 let Database, db;
 
-if (process.env.VERCEL) {
-  // Use Vercel-compatible database
+if (process.env.NEXT_PUBLIC_SUPABASE_URL) {
+  // Use Supabase database
+  const SupabaseDatabase = (await import('../../../lib/database-supabase.js')).default;
+  Database = SupabaseDatabase;
+  db = new Database();
+} else if (process.env.VERCEL) {
+  // Use Vercel-compatible in-memory database
   const VercelDatabase = (await import('../../../lib/database-vercel.js')).default;
   Database = VercelDatabase;
   db = new Database();
