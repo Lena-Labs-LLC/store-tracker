@@ -176,6 +176,40 @@ export default function Home() {
     }
   }
 
+  const checkAllStores = async () => {
+    if (stores.length === 0) {
+      showAlert('No stores to check', 'warning')
+      return
+    }
+
+    try {
+      showAlert(`Checking all ${stores.length} stores...`, 'info')
+      
+      const response = await fetch('/api/monitoring/check-all', {
+        method: 'POST'
+      })
+
+      const result = await response.json()
+
+      if (response.ok) {
+        // Refresh data
+        loadStores()
+        loadStats()
+        loadSessions()
+        
+        const alertType = result.successCount === result.totalStores ? 'success' : 'warning'
+        showAlert(
+          `${result.message}. Found ${result.totalApps || 0} total apps, ${result.totalNewApps || 0} new apps.`,
+          alertType
+        )
+      } else {
+        showAlert(result.error || 'Error checking all stores', 'danger')
+      }
+    } catch (error) {
+      showAlert('Error checking all stores', 'danger')
+    }
+  }
+
   const deleteStore = async (id) => {
     if (!confirm('Are you sure you want to delete this store? This will also delete all associated apps.')) {
       return
@@ -351,6 +385,9 @@ export default function Home() {
           <div className="card-header d-flex justify-content-between align-items-center">
             <h5 className="mb-0"><i className="fas fa-store me-2"></i>Monitored Stores</h5>
             <div>
+              <button className="btn btn-success btn-sm me-2" onClick={checkAllStores} disabled={stores.length === 0}>
+                <i className="fas fa-play"></i> Check All
+              </button>
               <button className="btn btn-warning btn-sm me-2" onClick={testWebhook}>
                 <i className="fas fa-bell"></i> Test Webhook
               </button>
