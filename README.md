@@ -1,6 +1,6 @@
-# App Store Tracker
+# App Store Tracker (Next.js)
 
-A Node.js web application that monitors app stores (Google Play Store and Apple App Store) to detect newly added apps.
+A Next.js application that monitors app stores (Google Play Store and Apple App Store) to detect newly added apps.
 
 ## Features
 
@@ -31,13 +31,16 @@ cp .env.example .env
    - Update `.env` with the path to your service account key
 
 4. Start the application:
-```bash
-npm start
-```
 
-For development with auto-reload:
+For development:
 ```bash
 npm run dev
+```
+
+For production:
+```bash
+npm run build
+npm start
 ```
 
 ## Usage
@@ -66,19 +69,39 @@ The application uses SQLite for data storage with three main tables:
 - `apps`: Discovered apps with metadata
 - `monitoring_sessions`: Check history and statistics
 
+## Architecture Changes
+
+This project has been converted from Express.js to Next.js:
+
+- **Frontend**: React components with Bootstrap styling
+- **Backend**: Next.js API routes (`/pages/api/`)
+- **Database**: SQLite with the same schema
+- **Background Jobs**: Managed through a background service that starts automatically
+- **Static Assets**: Served from `/public/`
+
 ## API Endpoints
 
 ### Stores
 - `GET /api/stores` - List all stores
 - `POST /api/stores` - Add new store
-- `DELETE /api/stores/:id` - Delete store
-- `PATCH /api/stores/:id/interval` - Update check interval
-- `GET /api/stores/:id/apps` - Get apps for store
+- `DELETE /api/stores/[id]` - Delete store
+- `PATCH /api/stores/[id]` - Update check interval
+- `GET /api/stores/[id]/apps` - Get apps for store
+- `POST /api/stores/preview` - Preview store before adding
 
 ### Monitoring
-- `POST /api/monitoring/check/:storeId` - Manual store check
+- `POST /api/monitoring/check/[storeId]` - Manual store check
 - `GET /api/monitoring/sessions` - Recent monitoring sessions
 - `GET /api/monitoring/stats` - Dashboard statistics
+
+### Webhook
+- `POST /api/webhook/test` - Test webhook configuration
+- `GET /api/webhook/config` - Get webhook status
+
+### Service Management
+- `POST /api/service/start` - Start background monitoring service
+- `GET /api/service/status` - Get service status
+- `POST /api/init` - Initialize app and start services
 
 ## Configuration
 
