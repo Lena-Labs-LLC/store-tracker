@@ -31,17 +31,6 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Error handling middleware
-app.use((err, req, res, next) => {
-    console.error('Unhandled error:', err);
-    res.status(500).json({ error: 'Internal server error' });
-});
-
-// 404 handler
-app.use((req, res) => {
-    res.status(404).json({ error: 'Not found' });
-});
-
 // Initialize database and start server
 async function startServer() {
     try {
@@ -60,12 +49,6 @@ async function startServer() {
 }
 
 async function startScheduledMonitoring() {
-    // Don't run cron jobs in serverless environments
-    if (process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME) {
-        console.log('Skipping scheduled monitoring in serverless environment');
-        return;
-    }
-    
     // Check for stores that need monitoring every minute
     cron.schedule('* * * * *', async () => {
         try {
