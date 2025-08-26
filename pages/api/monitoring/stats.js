@@ -1,9 +1,24 @@
-import Database from '../../../src/database'
+// Use different database implementations based on environment
+let Database, db;
 
-const db = new Database()
+if (process.env.VERCEL) {
+  // Use Vercel-compatible database
+  const VercelDatabase = (await import('../../../lib/database-vercel.js')).default;
+  Database = VercelDatabase;
+  db = new Database();
+} else {
+  // Use SQLite for local development
+  Database = require('../../../src/database');
+  db = new Database();
+}
 
 export default async function handler(req, res) {
-  await db.initialize()
+  try {
+    await db.initialize();
+  } catch (error) {
+    console.error('Database initialization error:', error);
+    return res.status(500).json({ error: 'Database initialization failed' });
+  }
 
   if (req.method === 'GET') {
     try {

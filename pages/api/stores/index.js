@@ -1,9 +1,24 @@
-import Database from '../../../src/database'
+// Use different database implementations based on environment
+let Database, db;
 
-const db = new Database()
+if (process.env.VERCEL) {
+  // Use Vercel-compatible database
+  const VercelDatabase = (await import('../../../lib/database-vercel.js')).default;
+  Database = VercelDatabase;
+  db = new Database();
+} else {
+  // Use SQLite for local development
+  Database = require('../../../src/database');
+  db = new Database();
+}
 
 export default async function handler(req, res) {
-  await db.initialize()
+  try {
+    await db.initialize();
+  } catch (error) {
+    console.error('Database initialization error:', error);
+    return res.status(500).json({ error: 'Database initialization failed' });
+  }
 
   if (req.method === 'GET') {
     try {
@@ -15,7 +30,13 @@ export default async function handler(req, res) {
   } else if (req.method === 'POST') {
     try {
       const { name, url, checkInterval } = req.body
-      const StoreAnalyzer = require('../../../src/storeAnalyzer')
+      let StoreAnalyzer;
+      try {
+        StoreAnalyzer = require('../../../src/storeAnalyzer');
+      } catch (error) {
+        console.error('StoreAnalyzer import error:', error);
+        return res.status(500).json({ error: 'StoreAnalyzer module not found' });
+      }
       
       if (!url) {
         return res.status(400).json({ error: 'URL is required' })
