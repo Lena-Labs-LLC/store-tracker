@@ -2,52 +2,94 @@
 let Database, db, storeMonitor;
 
 if (process.env.NEXT_PUBLIC_SUPABASE_URL) {
-  // Use Supabase database
+  // Use Supabase database with real StoreMonitor
   const SupabaseDatabase = (await import('../../../../lib/database-supabase.js')).default;
+  const StoreMonitor = require('../../../../src/storeMonitor');
   Database = SupabaseDatabase;
   db = new Database();
   
-  // Create a simple store monitor for Supabase
-  storeMonitor = {
+  // Create a wrapper for StoreMonitor to work with Supabase
+  class SupabaseStoreMonitor extends StoreMonitor {
+    constructor(database) {
+      super(database);
+    }
+    
     async manualCheck(storeId) {
       try {
-        // Get store info
-        const stores = await db.getStores();
+        // Get store info from Supabase
+        const stores = await this.db.getStores();
         const store = stores.find(s => s.id == storeId);
         
         if (!store) {
           throw new Error('Store not found');
         }
-
-        // Create monitoring session
-        const session = await db.createMonitoringSession(storeId);
         
-        // For now, simulate finding apps (you can implement actual scraping later)
-        const simulatedApps = [
-          { id: 'app1', name: 'Sample App 1', url: store.url + '/app1' },
-          { id: 'app2', name: 'Sample App 2', url: store.url + '/app2' }
-        ];
+        // Create monitoring session
+        const session = await this.db.createMonitoringSession(storeId);
+        
+        let apps = [];
+        
+        // Use the actual scraping methods
+        if (store.type === 'playstore') {
+          apps = await this.scrapePlayStore(store.url);
+        } else if (store.type === 'appstore') {
+          apps = await this.scrapeAppStore(store.url);
+        }
+        
+        let newAppsCount = 0;
+        const existingApps = await this.db.getAppsForStore(store.id);
+        const existingAppIds = new Set(existingApps.map(app => app.app_id));
+        const newAppsFound = [];
+
+        for (const app of apps) {
+          if (!existingAppIds.has(app.id)) {
+            await this.db.addApp(store.id, app.id, app.name, app.url);
+            newAppsFound.push({
+              app_id: app.id,
+              name: app.name,
+              url: app.url,
+              discovered_at: new Date().toISOString()
+            });
+            newAppsCount++;
+          }
+        }
         
         // Update monitoring session with results
-        await db.updateMonitoringSession(session.id, {
-          apps_found: simulatedApps.length,
-          new_apps_found: simulatedApps.length
+        await this.db.updateMonitoringSession(session.id, {
+          apps_found: apps.length,
+          new_apps_found: newAppsCount
         });
         
         // Update last checked
-        await db.updateLastChecked(storeId);
+        await this.db.updateLastChecked(storeId);
+        
+        // Send webhook if new apps were found
+        if (newAppsFound.length > 0) {
+          try {
+            await this.webhookService.sendNewApps(newAppsFound, store.name, store.type);
+            console.log(`Webhook sent for ${newAppsFound.length} new apps from ${store.name}`);
+          } catch (error) {
+            console.error(`Webhook failed for store ${store.name}:`, error);
+          }
+        }
+        
+        console.log(`Store ${store.name}: Found ${apps.length} apps, ${newAppsCount} new`);
         
         return {
-          totalApps: simulatedApps.length,
-          newApps: simulatedApps.length, // For demo, treat all as new
-          sessionId: session.id
+          totalApps: apps.length,
+          newApps: newAppsCount,
+          sessionId: session.id,
+          newAppsData: newAppsFound
         };
+        
       } catch (error) {
         console.error('Manual check error:', error);
         throw error;
       }
     }
-  };
+  }
+  
+  storeMonitor = new SupabaseStoreMonitor(db);
 } else if (process.env.VERCEL) {
   // Use Vercel-compatible in-memory database
   const VercelDatabase = (await import('../../../../lib/database-vercel.js')).default;
