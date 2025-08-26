@@ -9,10 +9,17 @@ export default function Home() {
   const [formData, setFormData] = useState({
     storeName: '',
     storeUrl: '',
-    checkInterval: 24
+    checkInterval: 24,
+    intervalUnit: 'hours'
   })
   const [storePreview, setStorePreview] = useState(null)
   const [alerts, setAlerts] = useState([])
+  const [selectedStores, setSelectedStores] = useState([])
+  const [bulkInterval, setBulkInterval] = useState(24)
+  const [bulkUnit, setBulkUnit] = useState('hours')
+  const [editingStore, setEditingStore] = useState(null)
+  const [editInterval, setEditInterval] = useState(24)
+  const [editUnit, setEditUnit] = useState('hours')
 
   useEffect(() => {
     // Initialize the app and background service
@@ -61,6 +68,8 @@ export default function Home() {
     try {
       const response = await fetch('/api/stores')
       const data = await response.json()
+      // Debug: log the store data to see what's being returned
+      console.log('Store data:', data)
       // Ensure data is always an array
       setStores(Array.isArray(data) ? data : [])
     } catch (error) {
@@ -133,14 +142,15 @@ export default function Home() {
         body: JSON.stringify({
           name: formData.storeName || null,
           url: formData.storeUrl,
-          checkInterval: parseInt(formData.checkInterval)
+          checkInterval: parseInt(formData.checkInterval),
+          intervalUnit: formData.intervalUnit
         })
       })
 
       const result = await response.json()
 
       if (response.ok) {
-        setFormData({ storeName: '', storeUrl: '', checkInterval: 24 })
+        setFormData({ storeName: '', storeUrl: '', checkInterval: 24, intervalUnit: 'hours' })
         setStorePreview(null)
         loadStores()
         loadStats()
@@ -249,6 +259,130 @@ export default function Home() {
       }
     } catch (error) {
       showAlert('Error testing webhook', 'danger')
+    }
+  }
+
+  const updateStoreInterval = async (storeId, value, unit) => {
+    try {
+      const response = await fetch(`/api/stores/${storeId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ value, unit })
+      })
+
+      const result = await response.json()
+
+      if (response.ok) {
+        loadStores()
+        setEditingStore(null)
+        showAlert('Check interval updated successfully!', 'success')
+      } else {
+        showAlert(result.error, 'danger')
+      }
+    } catch (error) {
+      showAlert('Error updating check interval', 'danger')
+    }
+  }
+
+  const bulkUpdateIntervals = async () => {
+    if (selectedStores.length === 0) {
+      showAlert('Please select stores to update', 'warning')
+      return
+    }
+
+    try {
+      showAlert(`Updating ${selectedStores.length} stores...`, 'info')
+      
+      const response = await fetch('/api/stores/bulk-update', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          storeIds: selectedStores, 
+          value: bulkInterval,
+          unit: bulkUnit
+        })
+      })
+
+      const result = await response.json()
+
+      if (response.ok) {
+        loadStores()
+        setSelectedStores([])
+        showAlert(result.message, 'success')
+      } else {
+        showAlert(result.error, 'danger')
+      }
+    } catch (error) {
+      showAlert('Error updating store intervals', 'danger')
+    }
+  }
+
+  const toggleStoreSelection = (storeId) => {
+    setSelectedStores(prev => 
+      prev.includes(storeId) 
+        ? prev.filter(id => id !== storeId)
+        : [...prev, storeId]
+    )
+  }
+
+  const selectAllStores = () => {
+    if (selectedStores.length === stores.length) {
+      setSelectedStores([])
+    } else {
+      setSelectedStores(stores.map(store => store.id))
+    }
+  }
+
+  const getReadableInterval = (value, unit) => {
+    // Handle legacy data where only check_interval_hours exists
+    if (!value && !unit) return 'N/A'
+    
+    // If no unit specified, assume it's the legacy hours format
+    if (!unit) {
+      unit = 'hours'
+    }
+    
+    // If no value, return N/A
+    if (!value) return 'N/A'
+    
+    if (value === 1) {
+      return `1 ${unit.slice(0, -1)}` // Remove 's' for singular
+    }
+    return `${value} ${unit}`
+  }
+
+  const startEditingStore = (store) => {
+    setEditingStore(store.id)
+    // Use new format if available, otherwise fall back to legacy hours format
+    const value = store.check_interval_value || store.check_interval_hours || 24
+    const unit = store.check_interval_unit || 'hours'
+    setEditInterval(value)
+    setEditUnit(unit)
+  }
+
+  const triggerMonitoring = async () => {
+    try {
+      showAlert('Triggering monitoring check...', 'info')
+      
+      const response = await fetch('/api/monitoring/trigger', {
+        method: 'POST'
+      })
+
+      const result = await response.json()
+
+      if (response.ok) {
+        loadStores()
+        loadStats()
+        loadSessions()
+        showAlert(
+          `Monitoring completed! Checked ${result.storesChecked} stores, found ${result.totalNewApps} new apps.`,
+          'success'
+        )
+      } else {
+        showAlert(result.error, 'danger')
+      }
+    } catch (error) {
+      showAlert('Error triggering monitoring', 'danger')
     }
   }
 
@@ -366,8 +500,18 @@ export default function Home() {
                       min="1"
                       value={formData.checkInterval}
                       onChange={(e) => setFormData(prev => ({ ...prev, checkInterval: e.target.value }))}
+                      style={{ maxWidth: '80px' }}
                     />
-                    <span className="input-group-text">hours</span>
+                    <select 
+                      className="form-select"
+                      value={formData.intervalUnit}
+                      onChange={(e) => setFormData(prev => ({ ...prev, intervalUnit: e.target.value }))}
+                    >
+                      <option value="seconds">seconds</option>
+                      <option value="minutes">minutes</option>
+                      <option value="hours">hours</option>
+                      <option value="days">days</option>
+                    </select>
                   </div>
                 </div>
                 <div className="col-md-1">
@@ -396,11 +540,67 @@ export default function Home() {
               <button className="btn btn-warning btn-sm me-2" onClick={testWebhook}>
                 <i className="fas fa-bell"></i> Test Webhook
               </button>
+              <button className="btn btn-info btn-sm me-2" onClick={triggerMonitoring}>
+                <i className="fas fa-clock"></i> Trigger Monitoring
+              </button>
               <button className="btn btn-outline-primary btn-sm" onClick={loadStores}>
                 <i className="fas fa-sync-alt"></i> Refresh
               </button>
             </div>
           </div>
+          
+          {/* Bulk Actions */}
+          {stores.length > 0 && (
+            <div className="card-body border-bottom">
+              <div className="row align-items-center">
+                <div className="col-md-3">
+                  <div className="form-check">
+                    <input 
+                      className="form-check-input" 
+                      type="checkbox" 
+                      id="selectAll"
+                      checked={selectedStores.length === stores.length && stores.length > 0}
+                      onChange={selectAllStores}
+                    />
+                    <label className="form-check-label" htmlFor="selectAll">
+                      Select All ({selectedStores.length} selected)
+                    </label>
+                  </div>
+                </div>
+                <div className="col-md-6">
+                  <div className="input-group input-group-sm">
+                    <span className="input-group-text">Bulk Update:</span>
+                    <input 
+                      type="number" 
+                      className="form-control" 
+                      value={bulkInterval}
+                      onChange={(e) => setBulkInterval(parseInt(e.target.value))}
+                      min="1"
+                      style={{ maxWidth: '80px' }}
+                    />
+                    <select 
+                      className="form-select"
+                      value={bulkUnit}
+                      onChange={(e) => setBulkUnit(e.target.value)}
+                      style={{ maxWidth: '100px' }}
+                    >
+                      <option value="seconds">seconds</option>
+                      <option value="minutes">minutes</option>
+                      <option value="hours">hours</option>
+                      <option value="days">days</option>
+                    </select>
+                    <button 
+                      className="btn btn-outline-primary btn-sm" 
+                      onClick={bulkUpdateIntervals}
+                      disabled={selectedStores.length === 0}
+                    >
+                      <i className="fas fa-edit"></i> Update Selected
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
           <div className="card-body">
             <div className="row">
               {stores.length === 0 ? (
@@ -422,20 +622,74 @@ export default function Home() {
                         <div className="row text-center mb-3">
                           <div className="col-6">
                             <small className="text-muted">Check Every</small>
-                            <div><strong>{store.check_interval_hours}h</strong></div>
+                            {editingStore === store.id ? (
+                              <div className="d-flex align-items-center justify-content-center">
+                                <input 
+                                  type="number" 
+                                  className="form-control form-control-sm me-1" 
+                                  value={editInterval}
+                                  onChange={(e) => setEditInterval(parseInt(e.target.value))}
+                                  min="1"
+                                  style={{ width: '50px' }}
+                                />
+                                <select 
+                                  className="form-select form-select-sm"
+                                  value={editUnit}
+                                  onChange={(e) => setEditUnit(e.target.value)}
+                                  style={{ width: '70px' }}
+                                >
+                                  <option value="seconds">sec</option>
+                                  <option value="minutes">min</option>
+                                  <option value="hours">hrs</option>
+                                  <option value="days">days</option>
+                                </select>
+                              </div>
+                            ) : (
+                              <div>
+                                <strong>{getReadableInterval(store.check_interval_value || store.check_interval_hours, store.check_interval_unit || 'hours')}</strong>
+                              </div>
+                            )}
                           </div>
                           <div className="col-6">
                             <small className="text-muted">Last Checked</small>
                             <div><small>{store.last_checked ? new Date(store.last_checked).toLocaleString() : 'Never'}</small></div>
                           </div>
                         </div>
-                        <div className="d-flex gap-2">
-                          <button className="btn btn-sm btn-outline-primary flex-fill" onClick={() => checkStore(store.id)}>
-                            <i className="fas fa-sync-alt"></i> Check Now
-                          </button>
-                          <button className="btn btn-sm btn-outline-danger" onClick={() => deleteStore(store.id)}>
-                            <i className="fas fa-trash"></i>
-                          </button>
+                        <div className="d-flex gap-1">
+                          <input 
+                            type="checkbox" 
+                            className="form-check-input me-2" 
+                            checked={selectedStores.includes(store.id)}
+                            onChange={() => toggleStoreSelection(store.id)}
+                          />
+                          {editingStore === store.id ? (
+                            <>
+                              <button 
+                                className="btn btn-sm btn-success flex-fill" 
+                                onClick={() => updateStoreInterval(store.id, editInterval, editUnit)}
+                              >
+                                <i className="fas fa-check"></i> Save
+                              </button>
+                              <button 
+                                className="btn btn-sm btn-secondary" 
+                                onClick={() => setEditingStore(null)}
+                              >
+                                <i className="fas fa-times"></i>
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <button className="btn btn-sm btn-outline-primary flex-fill" onClick={() => checkStore(store.id)}>
+                                <i className="fas fa-sync-alt"></i> Check
+                              </button>
+                              <button className="btn btn-sm btn-outline-secondary" onClick={() => startEditingStore(store)}>
+                                <i className="fas fa-edit"></i>
+                              </button>
+                              <button className="btn btn-sm btn-outline-danger" onClick={() => deleteStore(store.id)}>
+                                <i className="fas fa-trash"></i>
+                              </button>
+                            </>
+                          )}
                         </div>
                       </div>
                     </div>

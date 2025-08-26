@@ -1,0 +1,13 @@
+{
+  "name": "supabase-migration",
+  "version": "1.0.0",
+  "description": "Migration script for time units",
+  "main": "scripts/migrate-time-units.js",
+  "scripts": {
+    "migrate": "node scripts/migrate-time-units.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.0.0",
+    "dotenv": "^16.0.0"
+  }
+}

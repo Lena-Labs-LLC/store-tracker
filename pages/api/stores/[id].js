@@ -36,13 +36,17 @@ export default async function handler(req, res) {
     }
   } else if (req.method === 'PATCH') {
     try {
-      const { hours } = req.body
+      const { value, unit } = req.body
       
-      if (!hours || hours <= 0) {
-        return res.status(400).json({ error: 'Hours must be a positive number' })
+      if (!value || value <= 0) {
+        return res.status(400).json({ error: 'Interval value must be a positive number' })
       }
 
-      await db.updateStoreInterval(id, hours)
+      if (!unit || !['seconds', 'minutes', 'hours', 'days'].includes(unit)) {
+        return res.status(400).json({ error: 'Unit must be seconds, minutes, hours, or days' })
+      }
+
+      await db.updateStoreInterval(id, value, unit)
       res.json({ message: 'Check interval updated successfully' })
     } catch (error) {
       res.status(500).json({ error: error.message })

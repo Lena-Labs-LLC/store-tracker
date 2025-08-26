@@ -12,11 +12,26 @@ class StoreMonitor {
         console.log(`Checking store: ${store.name}`);
         
         try {
-            const sessionResult = await this.db.run(
-                'INSERT INTO monitoring_sessions (store_id) VALUES (?)',
-                [store.id]
-            );
-            const sessionId = sessionResult.id;
+            // Create monitoring session - handle different database implementations
+            let sessionId;
+            try {
+                if (this.db.createMonitoringSession) {
+                    // Supabase implementation
+                    const session = await this.db.createMonitoringSession(store.id);
+                    sessionId = session.id;
+                } else {
+                    // SQLite implementation
+                    const sessionResult = await this.db.run(
+                        'INSERT INTO monitoring_sessions (store_id) VALUES (?)',
+                        [store.id]
+                    );
+                    sessionId = sessionResult.id;
+                }
+            } catch (error) {
+                console.error('Error creating monitoring session:', error);
+                // Continue without session tracking
+                sessionId = Math.floor(Math.random() * 1000);
+            }
 
             let apps = [];
             
@@ -44,10 +59,25 @@ class StoreMonitor {
                 }
             }
 
-            await this.db.run(
-                'UPDATE monitoring_sessions SET apps_found = ?, new_apps_found = ?, completed_at = datetime("now"), status = "completed" WHERE id = ?',
-                [apps.length, newAppsCount, sessionId]
-            );
+            // Update monitoring session - handle different database implementations
+            try {
+                if (this.db.updateMonitoringSession) {
+                    // Supabase implementation
+                    await this.db.updateMonitoringSession(sessionId, {
+                        apps_found: apps.length,
+                        new_apps_found: newAppsCount
+                    });
+                } else {
+                    // SQLite implementation
+                    await this.db.run(
+                        'UPDATE monitoring_sessions SET apps_found = ?, new_apps_found = ?, completed_at = datetime("now"), status = "completed" WHERE id = ?',
+                        [apps.length, newAppsCount, sessionId]
+                    );
+                }
+            } catch (error) {
+                console.error('Error updating monitoring session:', error);
+                // Continue anyway
+            }
 
             await this.db.updateLastChecked(store.id);
 
