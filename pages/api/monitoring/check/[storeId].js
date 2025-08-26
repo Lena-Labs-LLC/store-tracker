@@ -6,14 +6,46 @@ if (process.env.NEXT_PUBLIC_SUPABASE_URL) {
   const SupabaseDatabase = (await import('../../../../lib/database-supabase.js')).default;
   Database = SupabaseDatabase;
   db = new Database();
-  // Mock store monitor for Supabase (for now)
+  
+  // Create a simple store monitor for Supabase
   storeMonitor = {
     async manualCheck(storeId) {
-      return {
-        totalApps: 0,
-        newApps: 0,
-        sessionId: Math.floor(Math.random() * 1000)
-      };
+      try {
+        // Get store info
+        const stores = await db.getStores();
+        const store = stores.find(s => s.id == storeId);
+        
+        if (!store) {
+          throw new Error('Store not found');
+        }
+
+        // Create monitoring session
+        const session = await db.createMonitoringSession(storeId);
+        
+        // For now, simulate finding apps (you can implement actual scraping later)
+        const simulatedApps = [
+          { id: 'app1', name: 'Sample App 1', url: store.url + '/app1' },
+          { id: 'app2', name: 'Sample App 2', url: store.url + '/app2' }
+        ];
+        
+        // Update monitoring session with results
+        await db.updateMonitoringSession(session.id, {
+          apps_found: simulatedApps.length,
+          new_apps_found: simulatedApps.length
+        });
+        
+        // Update last checked
+        await db.updateLastChecked(storeId);
+        
+        return {
+          totalApps: simulatedApps.length,
+          newApps: simulatedApps.length, // For demo, treat all as new
+          sessionId: session.id
+        };
+      } catch (error) {
+        console.error('Manual check error:', error);
+        throw error;
+      }
     }
   };
 } else if (process.env.VERCEL) {
