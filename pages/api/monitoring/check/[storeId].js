@@ -30,11 +30,13 @@ if (process.env.NEXT_PUBLIC_SUPABASE_URL) {
         let apps = [];
         
         // Use the actual scraping methods
+        console.log(`Scraping ${store.type} store: ${store.url}`);
         if (store.type === 'playstore') {
           apps = await this.scrapePlayStore(store.url);
         } else if (store.type === 'appstore') {
           apps = await this.scrapeAppStore(store.url);
         }
+        console.log(`Scraping result: Found ${apps.length} apps`);
         
         let newAppsCount = 0;
         const existingApps = await this.db.getAppsForStore(store.id);

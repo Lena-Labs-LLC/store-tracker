@@ -385,7 +385,12 @@ export default function Home() {
           <div className="card-header d-flex justify-content-between align-items-center">
             <h5 className="mb-0"><i className="fas fa-store me-2"></i>Monitored Stores</h5>
             <div>
-              <button className="btn btn-success btn-sm me-2" onClick={checkAllStores} disabled={stores.length === 0}>
+              <button 
+                className="btn btn-success btn-sm me-2" 
+                onClick={checkAllStores} 
+                disabled={stores.length === 0}
+                title={stores.length === 0 ? 'No stores to check' : `Check all ${stores.length} stores`}
+              >
                 <i className="fas fa-play"></i> Check All
               </button>
               <button className="btn btn-warning btn-sm me-2" onClick={testWebhook}>
