@@ -6,9 +6,9 @@ export default async function handler(req, res) {
       if (!initialized) {
         // Skip background service initialization on Vercel
         if (!process.env.VERCEL) {
-          const { getBackgroundService } = await import('../../lib/backgroundService');
-          const service = getBackgroundService();
-          await service.start();
+          const { getSimpleMonitoringService } = await import('../../lib/simpleMonitoring');
+          const service = getSimpleMonitoringService();
+          service.start(2); // Check every 2 minutes
         }
         initialized = true;
         console.log('App initialized');
