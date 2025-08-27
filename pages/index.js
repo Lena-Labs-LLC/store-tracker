@@ -20,6 +20,15 @@ export default function Home() {
   const [editingStore, setEditingStore] = useState(null)
   const [editInterval, setEditInterval] = useState(24)
   const [editUnit, setEditUnit] = useState('hours')
+  const [allSessions, setAllSessions] = useState([])
+  const [sessionsPagination, setSessionsPagination] = useState({
+    page: 1,
+    limit: 20,
+    total: 0,
+    totalPages: 0,
+    hasNext: false,
+    hasPrev: false
+  })
 
   useEffect(() => {
     // Initialize the app and background service
@@ -35,6 +44,7 @@ export default function Home() {
     loadStats()
     loadStores()
     loadSessions()
+    loadAllSessions()
     
     // Auto-refresh every 30 seconds
     const interval = setInterval(() => {
@@ -80,13 +90,34 @@ export default function Home() {
 
   const loadSessions = async () => {
     try {
-      const response = await fetch('/api/monitoring/sessions')
+      const response = await fetch('/api/monitoring/sessions?page=1&limit=10')
       const data = await response.json()
-      // Ensure data is always an array
-      setSessions(Array.isArray(data) ? data : [])
+      // Ensure data is always an array - for recent sessions, we only want the sessions array
+      setSessions(data.sessions || [])
     } catch (error) {
       console.error('Error loading sessions:', error)
       setSessions([]) // Set empty array on error
+    }
+  }
+
+  const loadAllSessions = async (page = 1) => {
+    try {
+      const response = await fetch(`/api/monitoring/raw-sessions?page=${page}&limit=20`)
+      const data = await response.json()
+      console.log('RAW Sessions API - TOTAL FOUND:', data.pagination.total) // Debug log
+      console.log('RAW Sessions API - DEBUG:', data.debug) // Debug log
+      setAllSessions(data.sessions || [])
+      setSessionsPagination(data.pagination || {
+        page: 1,
+        limit: 20,
+        total: 0,
+        totalPages: 0,
+        hasNext: false,
+        hasPrev: false
+      })
+    } catch (error) {
+      console.error('Error loading all sessions:', error)
+      setAllSessions([])
     }
   }
 
@@ -177,6 +208,7 @@ export default function Home() {
         loadStores()
         loadStats()
         loadSessions()
+        loadAllSessions()
         showAlert(`Check completed! Found ${result.totalApps} apps, ${result.newApps} new`, 'success')
       } else {
         showAlert(result.error, 'danger')
@@ -206,12 +238,22 @@ export default function Home() {
         loadStores()
         loadStats()
         loadSessions()
+        loadAllSessions()
         
         const alertType = result.successCount === result.totalStores ? 'success' : 'warning'
         showAlert(
           `${result.message}. Found ${result.totalApps || 0} total apps, ${result.totalNewApps || 0} new apps.`,
           alertType
         )
+      } else if (response.status === 504) {
+        showAlert('Check all stores is taking longer than expected. The operation is still running in the background. Please check the monitoring sessions table for results.', 'warning')
+        // Still refresh data in case some operations completed
+        setTimeout(() => {
+          loadStores()
+          loadStats()
+          loadSessions()
+          loadAllSessions()
+        }, 5000)
       } else {
         showAlert(result.error || 'Error checking all stores', 'danger')
       }
@@ -374,10 +416,20 @@ export default function Home() {
         loadStores()
         loadStats()
         loadSessions()
+        loadAllSessions()
         showAlert(
           `Monitoring completed! Checked ${result.storesChecked} stores, found ${result.totalNewApps} new apps.`,
           'success'
         )
+      } else if (response.status === 504) {
+        showAlert('Monitoring is taking longer than expected. The operation is still running in the background. Please check the monitoring sessions table for results.', 'warning')
+        // Still refresh data in case some operations completed
+        setTimeout(() => {
+          loadStores()
+          loadStats()
+          loadSessions()
+          loadAllSessions()
+        }, 5000)
       } else {
         showAlert(result.error, 'danger')
       }
@@ -740,6 +792,127 @@ export default function Home() {
                 </tbody>
               </table>
             </div>
+          </div>
+        </div>
+
+        {/* All Monitoring Sessions with Pagination */}
+        <div className="card mt-4">
+          <div className="card-header d-flex justify-content-between align-items-center">
+            <h5 className="mb-0"><i className="fas fa-list me-2"></i>All Monitoring Sessions</h5>
+            <button className="btn btn-outline-primary btn-sm" onClick={() => loadAllSessions(sessionsPagination.page)}>
+              <i className="fas fa-sync-alt"></i> Refresh
+            </button>
+          </div>
+          <div className="card-body">
+            <div className="table-responsive">
+              <table className="table table-sm">
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Store</th>
+                    <th>Type</th>
+                    <th>Started</th>
+                    <th>Completed</th>
+                    <th>Status</th>
+                    <th>Apps Found</th>
+                    <th>New Apps</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {allSessions.length === 0 ? (
+                    <tr>
+                      <td colSpan="8" className="text-muted text-center">No monitoring sessions yet</td>
+                    </tr>
+                  ) : (
+                    allSessions.map(session => (
+                      <tr key={session.id}>
+                        <td><small>#{session.id}</small></td>
+                        <td>{session.store_name}</td>
+                        <td>
+                          <span className={`badge bg-${session.store_type === 'playstore' ? 'success' : 'primary'}`}>
+                            <i className={`fab fa-${session.store_type === 'playstore' ? 'google-play' : 'app-store-ios'}`}></i>
+                          </span>
+                        </td>
+                        <td><small>{new Date(session.started_at).toLocaleString()}</small></td>
+                        <td><small>{session.completed_at ? new Date(session.completed_at).toLocaleString() : '-'}</small></td>
+                        <td>
+                          <span className={`badge bg-${session.status === 'completed' ? 'success' : session.status === 'running' ? 'warning' : 'danger'}`}>
+                            {session.status}
+                          </span>
+                        </td>
+                        <td>{session.apps_found || 0}</td>
+                        <td>
+                          {session.new_apps_found > 0 ? (
+                            <strong className="text-success">{session.new_apps_found}</strong>
+                          ) : (
+                            <span className="text-muted">{session.new_apps_found || 0}</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+            
+
+            
+            {/* Pagination */}
+            {sessionsPagination.totalPages > 1 && (
+              <nav aria-label="Sessions pagination" className="mt-3">
+                <div className="d-flex justify-content-between align-items-center">
+                  <small className="text-muted">
+                    Showing {((sessionsPagination.page - 1) * sessionsPagination.limit) + 1} to {Math.min(sessionsPagination.page * sessionsPagination.limit, sessionsPagination.total)} of {sessionsPagination.total} sessions
+                  </small>
+                  <ul className="pagination pagination-sm mb-0">
+                    <li className={`page-item ${!sessionsPagination.hasPrev ? 'disabled' : ''}`}>
+                      <button 
+                        className="page-link" 
+                        onClick={() => sessionsPagination.hasPrev && loadAllSessions(sessionsPagination.page - 1)}
+                        disabled={!sessionsPagination.hasPrev}
+                      >
+                        Previous
+                      </button>
+                    </li>
+                    
+                    {/* Page numbers */}
+                    {Array.from({ length: Math.min(5, sessionsPagination.totalPages) }, (_, i) => {
+                      let pageNum;
+                      if (sessionsPagination.totalPages <= 5) {
+                        pageNum = i + 1;
+                      } else if (sessionsPagination.page <= 3) {
+                        pageNum = i + 1;
+                      } else if (sessionsPagination.page >= sessionsPagination.totalPages - 2) {
+                        pageNum = sessionsPagination.totalPages - 4 + i;
+                      } else {
+                        pageNum = sessionsPagination.page - 2 + i;
+                      }
+                      
+                      return (
+                        <li key={pageNum} className={`page-item ${sessionsPagination.page === pageNum ? 'active' : ''}`}>
+                          <button 
+                            className="page-link" 
+                            onClick={() => loadAllSessions(pageNum)}
+                          >
+                            {pageNum}
+                          </button>
+                        </li>
+                      );
+                    })}
+                    
+                    <li className={`page-item ${!sessionsPagination.hasNext ? 'disabled' : ''}`}>
+                      <button 
+                        className="page-link" 
+                        onClick={() => sessionsPagination.hasNext && loadAllSessions(sessionsPagination.page + 1)}
+                        disabled={!sessionsPagination.hasNext}
+                      >
+                        Next
+                      </button>
+                    </li>
+                  </ul>
+                </div>
+              </nav>
+            )}
           </div>
         </div>
       </div>

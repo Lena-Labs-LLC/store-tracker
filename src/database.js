@@ -220,6 +220,56 @@ class Database {
             [storeId, since]
         );
     }
+
+    // Monitoring Sessions
+    async createMonitoringSession(storeId) {
+        const result = await this.run(
+            'INSERT INTO monitoring_sessions (store_id, started_at, status) VALUES (?, datetime("now"), "running")',
+            [storeId]
+        );
+        return { id: result.id, store_id: storeId, started_at: new Date().toISOString(), status: 'running' };
+    }
+
+    async updateMonitoringSession(sessionId, updates) {
+        const setClause = [];
+        const params = [];
+        
+        if (updates.apps_found !== undefined) {
+            setClause.push('apps_found = ?');
+            params.push(updates.apps_found);
+        }
+        
+        if (updates.new_apps_found !== undefined) {
+            setClause.push('new_apps_found = ?');
+            params.push(updates.new_apps_found);
+        }
+        
+        if (updates.status !== undefined) {
+            setClause.push('status = ?');
+            params.push(updates.status);
+        }
+        
+        if (updates.status === 'completed') {
+            setClause.push('completed_at = datetime("now")');
+        }
+        
+        params.push(sessionId);
+        
+        return this.run(
+            `UPDATE monitoring_sessions SET ${setClause.join(', ')} WHERE id = ?`,
+            params
+        );
+    }
+
+    async getMonitoringSessions(limit = 50, offset = 0) {
+        return this.all(`
+            SELECT ms.*, s.name as store_name, s.type as store_type
+            FROM monitoring_sessions ms
+            JOIN stores s ON ms.store_id = s.id
+            ORDER BY ms.started_at DESC
+            LIMIT ? OFFSET ?
+        `, [limit, offset]);
+    }
 }
 
 module.exports = Database;

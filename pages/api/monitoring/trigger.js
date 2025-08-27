@@ -23,6 +23,13 @@ export default async function handler(req, res) {
     return res.status(405).end(`Method ${req.method} Not Allowed`);
   }
 
+  // Set timeout to prevent 504 errors
+  const timeoutId = setTimeout(() => {
+    if (!res.headersSent) {
+      res.status(504).json({ error: 'Request timeout - operation is still running in background' });
+    }
+  }, 55000); // 55 seconds to leave buffer for Vercel's 60s limit
+
   try {
     await db.initialize();
     
@@ -84,17 +91,23 @@ export default async function handler(req, res) {
       }
     }
     
-    res.json({
-      message: `Monitoring triggered successfully`,
-      storesFound: stores.length,
-      storesForced: stores.length === 0 && allStores.length > 0 ? allStores.length : 0,
-      storesChecked: checkedCount,
-      totalNewApps,
-      results
-    });
+    clearTimeout(timeoutId);
+    if (!res.headersSent) {
+      res.json({
+        message: `Monitoring triggered successfully`,
+        storesFound: stores.length,
+        storesForced: stores.length === 0 && allStores.length > 0 ? allStores.length : 0,
+        storesChecked: checkedCount,
+        totalNewApps,
+        results
+      });
+    }
     
   } catch (error) {
+    clearTimeout(timeoutId);
     console.error('Manual monitoring trigger error:', error);
-    res.status(500).json({ error: error.message });
+    if (!res.headersSent) {
+      res.status(500).json({ error: error.message });
+    }
   }
 }

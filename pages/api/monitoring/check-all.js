@@ -210,9 +210,17 @@ if (process.env.NEXT_PUBLIC_SUPABASE_URL) {
 }
 
 export default async function handler(req, res) {
+  // Set timeout to prevent 504 errors
+  const timeoutId = setTimeout(() => {
+    if (!res.headersSent) {
+      res.status(504).json({ error: 'Request timeout - operation is still running in background' });
+    }
+  }, 55000); // 55 seconds to leave buffer for Vercel's 60s limit
+
   try {
     await db.initialize();
   } catch (error) {
+    clearTimeout(timeoutId);
     console.error('Database initialization error:', error);
     return res.status(500).json({ error: 'Database initialization failed' });
   }
@@ -220,11 +228,18 @@ export default async function handler(req, res) {
   if (req.method === 'POST') {
     try {
       const result = await storeMonitor.checkAllStores();
-      res.json(result);
+      clearTimeout(timeoutId);
+      if (!res.headersSent) {
+        res.json(result);
+      }
     } catch (error) {
-      res.status(500).json({ error: error.message });
+      clearTimeout(timeoutId);
+      if (!res.headersSent) {
+        res.status(500).json({ error: error.message });
+      }
     }
   } else {
+    clearTimeout(timeoutId);
     res.setHeader('Allow', ['POST']);
     res.status(405).end(`Method ${req.method} Not Allowed`);
   }
