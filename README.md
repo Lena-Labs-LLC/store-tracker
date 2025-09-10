@@ -111,7 +111,18 @@ This project has been converted from Express.js to Next.js:
 - Can be configured per store
 
 ### Automatic Monitoring
-The application runs a cron job every minute to check if any stores need monitoring based on their configured intervals.
+The application uses Vercel cron jobs to automatically check stores every hour. Stores are monitored based on their configured intervals (default: 24 hours).
+
+**Cron Configuration:**
+- **Schedule**: Every hour (`0 * * * *`)
+- **Endpoint**: `/api/monitoring/auto-check`
+- **Method**: Automatic via Vercel's cron system
+
+**How it works:**
+1. Vercel calls the auto-check endpoint every hour
+2. The endpoint queries for stores that are due for monitoring
+3. Only stores past their check interval are processed
+4. Results are logged and can be viewed in Vercel's function logs
 
 ## Limitations
 

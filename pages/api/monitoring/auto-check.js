@@ -5,9 +5,22 @@ let isRunning = false;
 let lastRun = null;
 
 export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    res.setHeader('Allow', ['POST']);
+  // Allow both POST and GET for Vercel cron jobs
+  if (req.method !== 'POST' && req.method !== 'GET') {
+    res.setHeader('Allow', ['POST', 'GET']);
     return res.status(405).end(`Method ${req.method} Not Allowed`);
+  }
+
+  // Log the request for debugging
+  console.log(`🕐 Auto-check triggered via ${req.method} at ${new Date().toISOString()}`);
+  console.log('Headers:', req.headers);
+
+  // Check if this is a Vercel cron request
+  const isVercelCron = req.headers['user-agent']?.includes('vercel-cron') ||
+    req.headers['x-vercel-cron'] === '1';
+
+  if (isVercelCron) {
+    console.log('✅ Verified Vercel cron request');
   }
 
   // Prevent concurrent executions
@@ -56,11 +69,26 @@ export default async function handler(req, res) {
     const stores = await db.getStoresForMonitoring();
     console.log(`🔄 Auto-check: Found ${stores.length} stores that need monitoring`);
 
+    // Log some debug info about store status
     if (stores.length === 0) {
+      // Get all stores to see why none are due
+      const allStores = await db.getStores();
+      console.log(`📊 Debug: Total stores in DB: ${allStores.length}`);
+      if (allStores.length > 0) {
+        const now = new Date();
+        allStores.slice(0, 3).forEach(store => {
+          const lastChecked = store.last_checked ? new Date(store.last_checked) : null;
+          const intervalHours = store.check_interval_value || 24;
+          const nextCheck = lastChecked ? new Date(lastChecked.getTime() + (intervalHours * 60 * 60 * 1000)) : null;
+          console.log(`📅 Store "${store.name}": last_checked=${lastChecked?.toISOString()}, next_check=${nextCheck?.toISOString()}, now=${now.toISOString()}`);
+        });
+      }
+
       return res.json({
         message: 'No stores need monitoring at this time',
         storesChecked: 0,
         totalNewApps: 0,
+        totalStores: allStores.length,
         duration: Date.now() - startTime
       });
     }
@@ -108,7 +136,7 @@ export default async function handler(req, res) {
 
   } catch (error) {
     console.error('❌ Auto-check error:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: error.message,
       duration: Date.now() - startTime
     });

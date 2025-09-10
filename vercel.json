@@ -4,6 +4,12 @@
       "maxDuration": 60
     }
   },
+  "crons": [
+    {
+      "path": "/api/monitoring/auto-check",
+      "schedule": "0 * * * *"
+    }
+  ],
   "env": {
     "VERCEL": "1"
   }
