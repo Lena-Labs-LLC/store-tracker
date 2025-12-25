@@ -6,7 +6,7 @@
   },
   "crons": [
     {
-      "path": "/api/monitoring/auto-check",
+      "path": "/api/monitoring/trigger",
       "schedule": "45 13 * * *"
     }
   ],
