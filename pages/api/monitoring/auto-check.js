@@ -1,6 +1,9 @@
 // Auto-check endpoint that can be called by external cron services
 // This prevents multiple internal cron jobs from running
 
+// Prevent caching for Vercel cron jobs
+export const dynamic = 'force-dynamic';
+
 let isRunning = false;
 let lastRun = null;
 

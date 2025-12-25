@@ -50,7 +50,7 @@ class WebhookService {
                 if (categoryMatch) {
                     return this.formatCategory(categoryMatch);
                 }
-                
+
                 // Fallback: try to determine from URL structure
                 if (appUrl.includes('game')) return 'Games';
                 if (appUrl.includes('social')) return 'Social';
@@ -58,7 +58,7 @@ class WebhookService {
                 if (appUrl.includes('entertainment')) return 'Entertainment';
                 if (appUrl.includes('education')) return 'Education';
                 if (appUrl.includes('business')) return 'Business';
-                
+
                 return 'Unknown';
             } else if (storeType === 'appstore') {
                 // For App Store, category is harder to extract from URL
@@ -69,10 +69,10 @@ class WebhookService {
                 if (appUrl.includes('entertainment')) return 'Entertainment';
                 if (appUrl.includes('education')) return 'Education';
                 if (appUrl.includes('business')) return 'Business';
-                
+
                 return 'Unknown';
             }
-            
+
             return 'Unknown';
         } catch (error) {
             return 'Unknown';
@@ -123,7 +123,7 @@ class WebhookService {
         // Simple test payload for Slack trigger webhook
         const testPayload = {
             appName: "Test App",
-            appCategory: "Testing", 
+            appCategory: "Testing",
             appUrl: "https://example.com"
         };
 
@@ -138,10 +138,10 @@ class WebhookService {
             const errorData = error.response?.data;
             const status = error.response?.status;
             console.error('Webhook test failed:', status, errorData || error.message);
-            
+
             // Return detailed error info
-            return { 
-                success: false, 
+            return {
+                success: false,
                 status: status,
                 error: errorData?.error || error.message,
                 details: errorData
