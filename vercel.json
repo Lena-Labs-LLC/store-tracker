@@ -7,7 +7,7 @@
   "crons": [
     {
       "path": "/api/monitoring/trigger",
-      "schedule": "0 15 * * *"
+      "schedule": "0 21 * * *"
     }
   ],
   "env": {
