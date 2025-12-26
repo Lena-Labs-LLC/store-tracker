@@ -18,9 +18,17 @@ if (process.env.NEXT_PUBLIC_SUPABASE_URL) {
 }
 
 export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    res.setHeader('Allow', ['POST']);
+  if (req.method !== 'POST' && req.method !== 'GET') {
+    res.setHeader('Allow', ['POST', 'GET']);
     return res.status(405).end(`Method ${req.method} Not Allowed`);
+  }
+  
+  // Verify CRON_SECRET for GET requests from Vercel Cron
+  if (req.method === 'GET') {
+    const authHeader = req.headers.authorization;
+    if (process.env.CRON_SECRET && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
   }
 
   // Set timeout to prevent 504 errors
