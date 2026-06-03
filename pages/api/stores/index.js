@@ -37,7 +37,7 @@ export default async function handler(req, res) {
     }
   } else if (req.method === 'POST') {
     try {
-      const { name, url, checkInterval, intervalUnit } = req.body
+      const { name, url, checkInterval, intervalUnit, studioTag } = req.body
       let StoreAnalyzer;
       try {
         StoreAnalyzer = require('../../../src/storeAnalyzer');
@@ -65,7 +65,7 @@ export default async function handler(req, res) {
         storeName = await StoreAnalyzer.extractStoreName(url, storeType)
       }
 
-      const result = await db.addStore(storeName, url, storeType, checkInterval || 24, intervalUnit || 'hours')
+      const result = await db.addStore(storeName, url, storeType, checkInterval || 24, intervalUnit || 'hours', studioTag || null)
       res.json({ 
         id: result.id, 
         message: 'Store added successfully',

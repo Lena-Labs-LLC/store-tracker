@@ -8,6 +8,7 @@ export default function Home() {
   const [newApps, setNewApps] = useState([])
   const [formData, setFormData] = useState({
     storeName: '',
+    studioTag: '',
     storeUrl: '',
     checkInterval: 24,
     intervalUnit: 'hours'
@@ -20,6 +21,7 @@ export default function Home() {
   const [editingStore, setEditingStore] = useState(null)
   const [editInterval, setEditInterval] = useState(24)
   const [editUnit, setEditUnit] = useState('hours')
+  const [editStudioTag, setEditStudioTag] = useState('')
   const [allSessions, setAllSessions] = useState([])
   const [sessionsPagination, setSessionsPagination] = useState({
     page: 1,
@@ -172,6 +174,7 @@ export default function Home() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: formData.storeName || null,
+          studioTag: formData.studioTag || null,
           url: formData.storeUrl,
           checkInterval: parseInt(formData.checkInterval),
           intervalUnit: formData.intervalUnit
@@ -181,7 +184,7 @@ export default function Home() {
       const result = await response.json()
 
       if (response.ok) {
-        setFormData({ storeName: '', storeUrl: '', checkInterval: 24, intervalUnit: 'hours' })
+        setFormData({ storeName: '', studioTag: '', storeUrl: '', checkInterval: 24, intervalUnit: 'hours' })
         setStorePreview(null)
         loadStores()
         loadStats()
@@ -304,12 +307,12 @@ export default function Home() {
     }
   }
 
-  const updateStoreInterval = async (storeId, value, unit) => {
+  const updateStore = async (storeId, value, unit, studioTag) => {
     try {
       const response = await fetch(`/api/stores/${storeId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ value, unit })
+        body: JSON.stringify({ value, unit, studioTag })
       })
 
       const result = await response.json()
@@ -317,12 +320,12 @@ export default function Home() {
       if (response.ok) {
         loadStores()
         setEditingStore(null)
-        showAlert('Check interval updated successfully!', 'success')
+        showAlert('Store updated successfully!', 'success')
       } else {
         showAlert(result.error, 'danger')
       }
     } catch (error) {
-      showAlert('Error updating check interval', 'danger')
+      showAlert('Error updating store', 'danger')
     }
   }
 
@@ -400,6 +403,7 @@ export default function Home() {
     const unit = store.check_interval_unit || 'hours'
     setEditInterval(value)
     setEditUnit(unit)
+    setEditStudioTag(store.studio_tag || '')
   }
 
   const triggerMonitoring = async () => {
@@ -523,7 +527,16 @@ export default function Home() {
                     onChange={(e) => setFormData(prev => ({ ...prev, storeName: e.target.value }))}
                   />
                 </div>
-                <div className="col-md-5">
+                <div className="col-md-2">
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="Studio Tag"
+                    value={formData.studioTag}
+                    onChange={(e) => setFormData(prev => ({ ...prev, studioTag: e.target.value }))}
+                  />
+                </div>
+                <div className="col-md-4">
                   <input 
                     type="url" 
                     className="form-control" 
@@ -543,7 +556,7 @@ export default function Home() {
                     </div>
                   )}
                 </div>
-                <div className="col-md-3">
+                <div className="col-md-2">
                   <div className="input-group">
                     <input 
                       type="number" 
@@ -671,6 +684,22 @@ export default function Home() {
                           </span>
                         </div>
                         <p className="card-text small text-muted mb-2">{store.url}</p>
+                        <div className="mb-3">
+                          <small className="text-muted d-block">Studio Tag</small>
+                          {editingStore === store.id ? (
+                            <input
+                              type="text"
+                              className="form-control form-control-sm"
+                              placeholder="Parent company tag"
+                              value={editStudioTag}
+                              onChange={(e) => setEditStudioTag(e.target.value)}
+                            />
+                          ) : (
+                            <span className={`badge ${store.studio_tag ? 'bg-secondary' : 'bg-light text-muted'}`}>
+                              {store.studio_tag || 'No tag'}
+                            </span>
+                          )}
+                        </div>
                         <div className="row text-center mb-3">
                           <div className="col-6">
                             <small className="text-muted">Check Every</small>
@@ -718,7 +747,7 @@ export default function Home() {
                             <>
                               <button 
                                 className="btn btn-sm btn-success flex-fill" 
-                                onClick={() => updateStoreInterval(store.id, editInterval, editUnit)}
+                                onClick={() => updateStore(store.id, editInterval, editUnit, editStudioTag)}
                               >
                                 <i className="fas fa-check"></i> Save
                               </button>

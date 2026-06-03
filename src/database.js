@@ -23,6 +23,7 @@ class Database {
             `CREATE TABLE IF NOT EXISTS stores (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT NOT NULL,
+                studio_tag TEXT,
                 url TEXT NOT NULL UNIQUE,
                 type TEXT NOT NULL CHECK(type IN ('playstore', 'appstore')),
                 check_interval_hours REAL DEFAULT 24,
@@ -59,6 +60,20 @@ class Database {
         
         // Migration: Add new columns if they don't exist
         await this.migrateTimeUnits();
+        await this.migrateStudioTag();
+    }
+
+    async migrateStudioTag() {
+        try {
+            const tableInfo = await this.all("PRAGMA table_info(stores)");
+            const hasStudioTag = tableInfo.some(col => col.name === 'studio_tag');
+
+            if (!hasStudioTag) {
+                await this.run('ALTER TABLE stores ADD COLUMN studio_tag TEXT');
+            }
+        } catch (error) {
+            console.log('Studio tag migration completed or column already exists:', error.message);
+        }
     }
 
     async migrateTimeUnits() {
@@ -110,11 +125,11 @@ class Database {
     }
 
     // Store management
-    async addStore(name, url, type, checkInterval = 24, intervalUnit = 'hours') {
+    async addStore(name, url, type, checkInterval = 24, intervalUnit = 'hours', studioTag = null) {
         const intervalHours = this.convertToHours(checkInterval, intervalUnit);
         return this.run(
-            'INSERT INTO stores (name, url, type, check_interval_hours, check_interval_value, check_interval_unit) VALUES (?, ?, ?, ?, ?, ?)',
-            [name, url, type, intervalHours, checkInterval, intervalUnit]
+            'INSERT INTO stores (name, studio_tag, url, type, check_interval_hours, check_interval_value, check_interval_unit) VALUES (?, ?, ?, ?, ?, ?, ?)',
+            [name, this.normalizeStudioTag(studioTag), url, type, intervalHours, checkInterval, intervalUnit]
         );
     }
 
@@ -133,6 +148,19 @@ class Database {
             'UPDATE stores SET check_interval_hours = ?, check_interval_value = ?, check_interval_unit = ? WHERE id = ?', 
             [hours, value, unit, id]
         );
+    }
+
+    async updateStoreTag(id, studioTag = null) {
+        return this.run(
+            'UPDATE stores SET studio_tag = ? WHERE id = ?',
+            [this.normalizeStudioTag(studioTag), id]
+        );
+    }
+
+    normalizeStudioTag(studioTag) {
+        if (typeof studioTag !== 'string') return null;
+        const trimmed = studioTag.trim();
+        return trimmed === '' ? null : trimmed;
     }
 
     // Helper method to convert different time units to hours

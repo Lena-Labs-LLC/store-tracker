@@ -25,6 +25,7 @@ async function setupDatabase() {
         CREATE TABLE IF NOT EXISTS stores (
           id BIGSERIAL PRIMARY KEY,
           name TEXT NOT NULL,
+          studio_tag TEXT,
           url TEXT NOT NULL UNIQUE,
           type TEXT NOT NULL CHECK(type IN ('playstore', 'appstore')),
           check_interval_hours INTEGER DEFAULT 24,

@@ -5,18 +5,21 @@ class WebhookService {
         this.webhookUrl = process.env.SLACK_WEBHOOK_URL || 'https://hooks.slack.com/triggers/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';
     }
 
-    async sendNewApps(newApps, storeName, storeType) {
+    async sendNewApps(newApps, storeName, storeType, studioTag = null) {
         if (!newApps || newApps.length === 0) {
             return;
         }
 
         try {
+            const formattedStoreName = this.formatStoreName(storeName, studioTag);
+
             // Send individual webhook for each new app as requested
             for (const app of newApps) {
                 const payload = {
                     appName: app.name,
                     appCategory: this.extractCategory(app.url, storeType),
-                    appUrl: app.url
+                    appUrl: app.url,
+                    storeName: formattedStoreName
                 };
 
                 try {
@@ -39,6 +42,16 @@ class WebhookService {
             console.error('Webhook sending failed:', error.message);
             return false;
         }
+    }
+
+    formatStoreName(storeName, studioTag = null) {
+        const trimmedTag = typeof studioTag === 'string' ? studioTag.trim() : '';
+
+        if (!trimmedTag) {
+            return storeName;
+        }
+
+        return `${storeName} (${trimmedTag})`;
     }
 
     extractCategory(appUrl, storeType) {
@@ -124,7 +137,8 @@ class WebhookService {
         const testPayload = {
             appName: "Test App",
             appCategory: "Testing",
-            appUrl: "https://example.com"
+            appUrl: "https://example.com",
+            storeName: "Test Studio (Test Tag)"
         };
 
         try {

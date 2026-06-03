@@ -36,18 +36,39 @@ export default async function handler(req, res) {
     }
   } else if (req.method === 'PATCH') {
     try {
-      const { value, unit } = req.body
-      
-      if (!value || value <= 0) {
-        return res.status(400).json({ error: 'Interval value must be a positive number' })
+      const { value, unit, studioTag } = req.body
+      const hasIntervalUpdate = value !== undefined || unit !== undefined
+      const hasTagUpdate = studioTag !== undefined
+
+      if (!hasIntervalUpdate && !hasTagUpdate) {
+        return res.status(400).json({ error: 'No store updates provided' })
       }
 
-      if (!unit || !['seconds', 'minutes', 'hours', 'days'].includes(unit)) {
-        return res.status(400).json({ error: 'Unit must be seconds, minutes, hours, or days' })
+      if (hasIntervalUpdate) {
+        if (!value || value <= 0) {
+          return res.status(400).json({ error: 'Interval value must be a positive number' })
+        }
+
+        if (!unit || !['seconds', 'minutes', 'hours', 'days'].includes(unit)) {
+          return res.status(400).json({ error: 'Unit must be seconds, minutes, hours, or days' })
+        }
+
+        await db.updateStoreInterval(id, value, unit)
       }
 
-      await db.updateStoreInterval(id, value, unit)
-      res.json({ message: 'Check interval updated successfully' })
+      if (hasTagUpdate) {
+        if (typeof studioTag !== 'string' && studioTag !== null) {
+          return res.status(400).json({ error: 'Studio tag must be a string' })
+        }
+
+        if (!db.updateStoreTag) {
+          return res.status(500).json({ error: 'Store tag updates are not supported by this database' })
+        }
+
+        await db.updateStoreTag(id, studioTag)
+      }
+
+      res.json({ message: 'Store updated successfully' })
     } catch (error) {
       res.status(500).json({ error: error.message })
     }

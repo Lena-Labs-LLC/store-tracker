@@ -45,7 +45,7 @@ module.exports = (db) => {
     // Add new store
     router.post('/', async (req, res) => {
         try {
-            const { name, url, checkInterval } = req.body;
+            const { name, url, checkInterval, studioTag } = req.body;
             
             if (!url) {
                 return res.status(400).json({ error: 'URL is required' });
@@ -66,7 +66,7 @@ module.exports = (db) => {
                 storeName = await StoreAnalyzer.extractStoreName(url, storeType);
             }
 
-            const result = await db.addStore(storeName, url, storeType, checkInterval || 24);
+            const result = await db.addStore(storeName, url, storeType, checkInterval || 24, 'hours', studioTag || null);
             res.json({ 
                 id: result.id, 
                 message: 'Store added successfully',
@@ -105,6 +105,23 @@ module.exports = (db) => {
 
             await db.updateStoreInterval(id, hours);
             res.json({ message: 'Check interval updated successfully' });
+        } catch (error) {
+            res.status(500).json({ error: error.message });
+        }
+    });
+
+    // Update store studio tag
+    router.patch('/:id/tag', async (req, res) => {
+        try {
+            const { id } = req.params;
+            const { studioTag } = req.body;
+
+            if (typeof studioTag !== 'string' && studioTag !== null) {
+                return res.status(400).json({ error: 'Studio tag must be a string' });
+            }
+
+            await db.updateStoreTag(id, studioTag);
+            res.json({ message: 'Studio tag updated successfully' });
         } catch (error) {
             res.status(500).json({ error: error.message });
         }

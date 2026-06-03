@@ -68,7 +68,7 @@ if (process.env.NEXT_PUBLIC_SUPABASE_URL) {
         // Send webhook if new apps were found
         if (newAppsFound.length > 0) {
           try {
-            await this.webhookService.sendNewApps(newAppsFound, store.name, store.type);
+            await this.webhookService.sendNewApps(newAppsFound, store.name, store.type, store.studio_tag);
             console.log(`Webhook sent for ${newAppsFound.length} new apps from ${store.name}`);
           } catch (error) {
             console.error(`Webhook failed for store ${store.name}:`, error);
